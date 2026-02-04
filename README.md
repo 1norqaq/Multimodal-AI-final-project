@@ -9,7 +9,7 @@ An intelligent, privacy-first VLM (Vision-Language Model) application that runs 
 
 ## ✨ Key Features
 
-* **Edge AI Implementation**: Runs efficiently on 8GB VRAM GPUs (e.g., RTX 5060) using **bfloat16** precision without heavy quantization.
+* **Edge AI Implementation**: Runs efficiently on 8GB VRAM GPUs (e.g., RTX 5060/5070) using **bfloat16** precision without heavy quantization.
 * **Chain-of-Thought (CoT) Reasoning**: Implements a structured prompting pipeline (`OCR -> Visual Breakdown -> Context -> Punchline`) to deeply understand sarcasm and cultural references.
 * **Privacy First**: All processing happens locally on your machine. No images are sent to external APIs.
 * **Dynamic Creativity**: Adjustable temperature and sampling parameters for more engaging outputs.
