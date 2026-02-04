@@ -5,7 +5,7 @@ An intelligent, privacy-first VLM (Vision-Language Model) application that runs 
 ![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)
 ![Streamlit](https://img.shields.io/badge/Streamlit-App-FF4B4B.svg)
 ![Model](https://img.shields.io/badge/Model-Qwen2.5--VL--3B-violet)
-![Hardware](https://img.shields.io/badge/Hardware-RTX_5060_Optimized-green)
+![Hardware](https://img.shields.io/badge/Hardware-RTX_5070_Optimized-green)
 
 ## ✨ Key Features
 
