@@ -1,4 +1,3 @@
-# code
 import streamlit as st
 import torch
 from PIL import Image
