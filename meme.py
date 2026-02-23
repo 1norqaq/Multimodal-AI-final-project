@@ -3,36 +3,96 @@ import torch
 from PIL import Image
 from transformers import Qwen2_5_VLForConditionalGeneration, AutoProcessor
 from qwen_vl_utils import process_vision_info
+import gc
+
+# ========== Hybrid RAG Retrieval Module ==========
+from sentence_transformers import SentenceTransformer
+import chromadb
+from rank_bm25 import BM25Okapi
+
+KNOWLEDGE_BASE = {
+    "Distracted Boyfriend": "Distracted Boyfriend is a stock photo meme showing a man looking at another woman while his girlfriend looks at him disapprovingly. It represents being distracted by something new and ignoring what you already have.",
+    "Doge": "Doge features a Shiba Inu dog named Kabosu. It usually includes colorful Comic Sans text representing inner monologues with broken English syntax (e.g., 'much wow', 'very scare').",
+    "This is Fine": "This is Fine originates from the webcomic Gunshow, featuring a dog sitting in a burning room drinking coffee. It satirizes the attitude of denying a crisis and pretending everything is okay.",
+    "Drake Hotline Bling": "Drake approval/disapproval meme. The top panel shows Drake looking disgusted, representing rejection. The bottom shows him smiling and pointing, representing preference."
+}
+
+
+@st.cache_resource
+def load_retriever():
+    print("Loading CLIP Retriever...")
+    return SentenceTransformer('clip-ViT-B-32')
+
+
+@st.cache_resource
+def init_databases(_retriever):
+    print("Initializing Hybrid Databases (ChromaDB + BM25)...")
+
+    documents = list(KNOWLEDGE_BASE.values())
+    ids = list(KNOWLEDGE_BASE.keys())
+
+    # 1. Initialize ChromaDB (Dense Vector Search)
+    client = chromadb.Client()
+    collection = client.get_or_create_collection(name="hybrid_meme_kb")
+
+    if collection.count() == 0:
+        embeddings = _retriever.encode(documents).tolist()
+        collection.add(ids=ids, documents=documents, embeddings=embeddings)
+
+    # 2. Initialize BM25 (Sparse Keyword Search)
+    # Tokenize the documents for BM25
+    tokenized_corpus = [doc.lower().split(" ") for doc in documents]
+    bm25 = BM25Okapi(tokenized_corpus)
+
+    return collection, bm25, documents, ids
+
+
+def hybrid_search(img_path, text_query, _retriever, collection, bm25, docs, doc_ids):
+    # Retrieve top 1 from ChromaDB using Image Vector
+    img_emb = _retriever.encode(Image.open(img_path)).tolist()
+    chroma_results = collection.query(query_embeddings=[img_emb], n_results=1)
+    dense_match = chroma_results['documents'][0][0]
+
+    # If no text query, just return dense match
+    if not text_query or text_query.strip() == "":
+        return dense_match, "Vector DB (CLIP)"
+
+    # Retrieve from BM25 using Text Query
+    tokenized_query = text_query.lower().split(" ")
+    bm25_scores = bm25.get_scores(tokenized_query)
+    best_bm25_idx = bm25_scores.argmax()
+
+    # Simple Hybrid Logic:
+    # If BM25 finds a very strong keyword match (score > 1.5), trust BM25.
+    # Otherwise, trust the visual vector search.
+    if bm25_scores[best_bm25_idx] > 1.5:
+        return docs[best_bm25_idx], "BM25 Keyword Match"
+    else:
+        return dense_match, "Vector DB (CLIP)"
+
+
+# =======================================================
 
 # --- Page Configuration ---
 st.set_page_config(
-    page_title="Meme Analysis AI ",
+    page_title="Meme Analysis AI (Hybrid Search)",
     page_icon="🤖",
     layout="wide"
 )
 
-# --- Sidebar: System Status ---
 st.sidebar.title("⚙️ System Status")
 if torch.cuda.is_available():
     gpu_name = torch.cuda.get_device_name(0)
-    # 计算显存，3B 模型大约占用 6-7GB，接近 5060 的极限，但能跑！
     vram_total = round(torch.cuda.get_device_properties(0).total_memory / 1024 ** 3, 2)
     st.sidebar.success(f"✅ GPU Ready: {gpu_name}")
-    st.sidebar.info(f"VRAM: {vram_total} GB ")
+    st.sidebar.info(f"VRAM: {vram_total} GB")
 else:
     st.sidebar.error("❌ No GPU detected! This model requires a GPU.")
 
 
-# --- Model Loading (Cached) ---
 @st.cache_resource
 def load_model():
-    # 🔥 使用最新的 Qwen2.5-VL-3B-Instruct
-    # 这是目前 8GB 显卡能跑的最强原生模型 (非量化)
     model_path = "Qwen/Qwen2.5-VL-3B-Instruct"
-    print(f"Loading model from Hugging Face: {model_path}...")
-
-    # 显存优化策略：
-    # 我们使用 bfloat16 精度加载，这是 RTX 30/40/50 系列的原生精度
     try:
         model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
             model_path,
@@ -41,34 +101,31 @@ def load_model():
             _attn_implementation="flash_attention_2" if torch.cuda.get_device_capability()[0] >= 8 else "eager"
         )
     except Exception:
-        # 如果 Flash Attention 加载失败，回退到普通模式
-        print("Flash Attention not found, falling back to eager mode...")
         model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
             model_path,
             torch_dtype=torch.bfloat16,
             device_map="auto",
             _attn_implementation="eager"
         )
-
     processor = AutoProcessor.from_pretrained(model_path)
     return model, processor
 
 
-# --- Main UI ---
-st.title("🤖 Meme Analysis & Explanation ")
-st.markdown("Let me help you understand the latest and trendiest memes !")
+st.title("🤖 Meme Analysis & Explanation")
+st.markdown("Equipped with **Hybrid Search (Dense + BM25)** for maximum accuracy.")
 
-# Initialize Model
-with st.spinner("Starting AI Engine..."):
+with st.spinner("Starting AI & Hybrid Search Engines..."):
     try:
         model, processor = load_model()
+        retriever = load_retriever()
+        db_collection, bm25_index, kb_docs, kb_ids = init_databases(retriever)
     except Exception as e:
-        st.error(f"Failed to load model: {e}")
-        st.warning("提示：如果报错 Out of Memory (OOM)，请尝试关闭浏览器其他标签页以释放显存。")
+        st.error(f"Failed to load systems: {e}")
         st.stop()
 
-# File Uploader
-uploaded_file = st.file_uploader("Drag and drop or click to upload an image", type=["jpg", "png", "jpeg", "webp"])
+uploaded_file = st.file_uploader("Upload a meme image", type=["jpg", "png", "jpeg", "webp"])
+# Add optional keyword input for BM25
+keyword_query = st.text_input("Optional: Enter keywords (e.g., 'doge', 'fire') to boost BM25 search precision")
 
 if uploaded_file is not None:
     col1, col2 = st.columns([1, 1.5])
@@ -84,68 +141,63 @@ if uploaded_file is not None:
 
         if st.button("Analyze Meme", type="primary"):
 
-            # 💡 优化后的 Prompt：强制模型分步骤推理
-            prompt_text = """
-                        You are an expert in internet culture, memes, and visual humor. 
-                        Please analyze this image step by step:
+            with st.spinner("🔍 1. Running Hybrid Retrieval (ChromaDB + BM25)..."):
+                retrieved_context, match_source = hybrid_search(
+                    temp_path, keyword_query, retriever, db_collection, bm25_index, kb_docs, kb_ids
+                )
 
-                        1. **OCR & Text Analysis**: 
-                           - Transcribe all visible text in the image exactly.
-                           - If there is slang or internet terminology, briefly define it.
+                st.info(f"**📚 Retrieved Context (Source: {match_source}):** {retrieved_context}")
 
-                        2. **Visual Breakdown**: 
-                           - Describe the characters, facial expressions, and key objects.
-                           - Is this a famous meme template? (e.g., "Distracted Boyfriend", "Doge", "Wojak"). If yes, name it.
-
-                        3. **The "Punchline" (Reasoning)**:
-                           - Connect the text with the visual context.
-                           - Explain the irony, sarcasm, or pun. Why is this funny? 
-                           - If it references a specific event (gaming, coding, politics), explain the context.
-
-                        4. **Final Summary**:
-                           - Give a 1-sentence summary of the joke.
-                        """
-
-            messages = [
-                {
-                    "role": "user",
-                    "content": [
-                        {"type": "image", "image": temp_path},
-                        {"type": "text", "text": prompt_text},
-                    ],
-                }
-            ]
-
-            with st.spinner("I am thinking hard ..."):
+            with st.spinner("🧠 I am thinking hard with the retrieved context..."):
                 try:
+                    torch.cuda.empty_cache()
+                    gc.collect()
+
+                    prompt_text = f"""
+                    You are an expert in internet culture. 
+
+                    [RELIABLE BACKGROUND KNOWLEDGE]
+                    {retrieved_context}
+                    [/RELIABLE BACKGROUND KNOWLEDGE]
+
+                    Please analyze this image step by step:
+
+                    1. **OCR & Text Analysis**: 
+                       - Transcribe all visible text.
+
+                    2. **Visual Breakdown**: 
+                       - Describe characters and objects.
+
+                    3. **The "Punchline" (Reasoning)**:
+                       - Connect text, visual, and background knowledge.
+                       - Explain why it is funny.
+
+                    4. **Final Summary**:
+                       - Give a 1-sentence summary.
+                    """
+
+                    messages = [
+                        {"role": "user",
+                         "content": [{"type": "image", "image": temp_path}, {"type": "text", "text": prompt_text}]}
+                    ]
+
                     text = processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
                     image_inputs, video_inputs = process_vision_info(messages)
-                    inputs = processor(
-                        text=[text],
-                        images=image_inputs,
-                        padding=True,
-                        return_tensors="pt",
-                    ).to("cuda")
+                    inputs = processor(text=[text], images=image_inputs, padding=True, return_tensors="pt").to("cuda")
 
                     generated_ids = model.generate(
-                        **inputs,
-                        max_new_tokens=1024,  # Allowed longer output for CoT
-                        do_sample=True,  # Enable creativity (Randomness)
-                        temperature=0.7,  # Balanced creativity (0.7 is sweet spot for logic+humor)
-                        top_p=0.9,  # Nucleus sampling for quality
-                        repetition_penalty=1.1  # Prevent repetitive phrases
+                        **inputs, max_new_tokens=1024, do_sample=True, temperature=0.7, top_p=0.9,
+                        repetition_penalty=1.1
                     )
 
-                    generated_ids = model.generate(**inputs, max_new_tokens=512)
-                    output_text = processor.batch_decode(
-                        generated_ids, skip_special_tokens=True, clean_up_tokenization_spaces=False
-                    )
+                    output_text = processor.batch_decode(generated_ids, skip_special_tokens=True,
+                                                         clean_up_tokenization_spaces=False)
 
                     st.markdown(output_text[0])
                     st.success("Analysis Complete!")
 
                 except torch.cuda.OutOfMemoryError:
-                    st.error("💥 显存不足 (Out of Memory)！")
-                    st.info("建议：3B 模型比较吃显存，请关闭其他占用显存的程序再试。")
+                    st.error("💥 Out of Memory! Try closing other applications.")
+                    torch.cuda.empty_cache()
                 except Exception as e:
                     st.error(f"An error occurred: {e}")
