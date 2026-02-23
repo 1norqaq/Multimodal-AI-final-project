@@ -10,7 +10,7 @@ An intelligent, privacy-first Vision-Language Model (VLM) application that runs 
 ## ✨ Key Features
 
 * **Hybrid Search Architecture**: Combines **Dense Vector Search** (CLIP + ChromaDB) for semantic image-to-text matching with **Sparse Keyword Search** (BM25Okapi) for exact terminology retrieval.
-* **Edge AI Optimization**: Engineered to run smoothly on 8GB VRAM GPUs (e.g., RTX 5060) utilizing `bfloat16` precision and dynamic memory garbage collection.
+* **Edge AI Optimization**: Engineered to run smoothly on 8GB VRAM GPUs (e.g., RTX 5060/5070) utilizing `bfloat16` precision and dynamic memory garbage collection.
 * **Chain-of-Thought (CoT) Prompting**: Enforces a strict reasoning pipeline (`OCR -> Visual Breakdown -> Context Synthesis -> Punchline Explanation`) to eliminate AI hallucinations.
 * **Zero-Shot Knowledge Updating**: Easily teach the AI new memes by simply adding text to the local Knowledge Base, without needing to fine-tune the 3-Billion parameter model.
 * **100% Privacy**: All image processing and retrieval happen locally. No data is sent to external APIs like OpenAI.
