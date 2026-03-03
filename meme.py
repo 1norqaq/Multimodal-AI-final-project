@@ -1,4 +1,4 @@
-import streamlit as st
+ streamlit as st
 import torch
 from PIL import Image
 from transformers import Qwen2_5_VLForConditionalGeneration, AutoProcessor
@@ -40,7 +40,6 @@ def init_databases(_retriever):
         collection.add(ids=ids, documents=documents, embeddings=embeddings)
 
     # 2. Initialize BM25 (Sparse Keyword Search)
-    # Tokenize the documents for BM25
     tokenized_corpus = [doc.lower().split(" ") for doc in documents]
     bm25 = BM25Okapi(tokenized_corpus)
 
@@ -53,18 +52,13 @@ def hybrid_search(img_path, text_query, _retriever, collection, bm25, docs, doc_
     chroma_results = collection.query(query_embeddings=[img_emb], n_results=1)
     dense_match = chroma_results['documents'][0][0]
 
-    # If no text query, just return dense match
     if not text_query or text_query.strip() == "":
         return dense_match, "Vector DB (CLIP)"
 
-    # Retrieve from BM25 using Text Query
     tokenized_query = text_query.lower().split(" ")
     bm25_scores = bm25.get_scores(tokenized_query)
     best_bm25_idx = bm25_scores.argmax()
 
-    # Simple Hybrid Logic:
-    # If BM25 finds a very strong keyword match (score > 1.5), trust BM25.
-    # Otherwise, trust the visual vector search.
     if bm25_scores[best_bm25_idx] > 1.5:
         return docs[best_bm25_idx], "BM25 Keyword Match"
     else:
@@ -80,15 +74,16 @@ st.set_page_config(
     layout="wide"
 )
 
-st.sidebar.title("⚙️ System Status")
-if torch.cuda.is_available():
-    gpu_name = torch.cuda.get_device_name(0)
-    vram_total = round(torch.cuda.get_device_properties(0).total_memory / 1024 ** 3, 2)
-    st.sidebar.success(f"✅ GPU Ready: {gpu_name}")
-    st.sidebar.info(f"VRAM: {vram_total} GB")
-else:
-    st.sidebar.error("❌ No GPU detected! This model requires a GPU.")
 
+# 【已隐藏侧边栏】
+# st.sidebar.title("⚙️ System Status")
+# if torch.cuda.is_available():
+#     gpu_name = torch.cuda.get_device_name(0)
+#     vram_total = round(torch.cuda.get_device_properties(0).total_memory / 1024 ** 3, 2)
+#     st.sidebar.success(f"✅ GPU Ready: {gpu_name}")
+#     st.sidebar.info(f"VRAM: {vram_total} GB")
+# else:
+#     st.sidebar.error("❌ No GPU detected! This model requires a GPU.")
 
 @st.cache_resource
 def load_model():
@@ -124,7 +119,6 @@ with st.spinner("Starting AI & Hybrid Search Engines..."):
         st.stop()
 
 uploaded_file = st.file_uploader("Upload a meme image", type=["jpg", "png", "jpeg", "webp"])
-# Add optional keyword input for BM25
 keyword_query = st.text_input("Optional: Enter keywords (e.g., 'doge', 'fire') to boost BM25 search precision")
 
 if uploaded_file is not None:
@@ -146,6 +140,7 @@ if uploaded_file is not None:
                     temp_path, keyword_query, retriever, db_collection, bm25_index, kb_docs, kb_ids
                 )
 
+                # 保留了蓝色的提示框，告诉用户检索到了什么（如果你连这个也不想要，可以把下面这行也注释掉）
                 st.info(f"**📚 Retrieved Context (Source: {match_source}):** {retrieved_context}")
 
             with st.spinner("🧠 I am thinking hard with the retrieved context..."):
@@ -190,8 +185,16 @@ if uploaded_file is not None:
                         repetition_penalty=1.1
                     )
 
-                    output_text = processor.batch_decode(generated_ids, skip_special_tokens=True,
-                                                         clean_up_tokenization_spaces=False)
+                    # 💡 【修改点：切片操作隐藏 Prompt】
+                    # 计算输入部分的长度，并将生成的 token 截断，只保留模型新生成的部分
+                    generated_ids_trimmed = [
+                        out_ids[len(in_ids):] for in_ids, out_ids in zip(inputs.input_ids, generated_ids)
+                    ]
+
+                    # 💡 使用裁剪后的 token 进行解码
+                    output_text = processor.batch_decode(
+                        generated_ids_trimmed, skip_special_tokens=True, clean_up_tokenization_spaces=False
+                    )
 
                     st.markdown(output_text[0])
                     st.success("Analysis Complete!")
