@@ -1,4 +1,4 @@
- streamlit as st
+import streamlit as st
 import torch
 from PIL import Image
 from transformers import Qwen2_5_VLForConditionalGeneration, AutoProcessor
