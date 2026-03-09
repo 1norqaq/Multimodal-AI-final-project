@@ -74,17 +74,6 @@ st.set_page_config(
     layout="wide"
 )
 
-
-# 【已隐藏侧边栏】
-# st.sidebar.title("⚙️ System Status")
-# if torch.cuda.is_available():
-#     gpu_name = torch.cuda.get_device_name(0)
-#     vram_total = round(torch.cuda.get_device_properties(0).total_memory / 1024 ** 3, 2)
-#     st.sidebar.success(f"✅ GPU Ready: {gpu_name}")
-#     st.sidebar.info(f"VRAM: {vram_total} GB")
-# else:
-#     st.sidebar.error("❌ No GPU detected! This model requires a GPU.")
-
 @st.cache_resource
 def load_model():
     model_path = "Qwen/Qwen2.5-VL-3B-Instruct"
@@ -140,7 +129,6 @@ if uploaded_file is not None:
                     temp_path, keyword_query, retriever, db_collection, bm25_index, kb_docs, kb_ids
                 )
 
-                # 保留了蓝色的提示框，告诉用户检索到了什么（如果你连这个也不想要，可以把下面这行也注释掉）
                 st.info(f"**📚 Retrieved Context (Source: {match_source}):** {retrieved_context}")
 
             with st.spinner("🧠 I am thinking hard with the retrieved context..."):
@@ -185,13 +173,10 @@ if uploaded_file is not None:
                         repetition_penalty=1.1
                     )
 
-                    # 💡 【修改点：切片操作隐藏 Prompt】
-                    # 计算输入部分的长度，并将生成的 token 截断，只保留模型新生成的部分
                     generated_ids_trimmed = [
                         out_ids[len(in_ids):] for in_ids, out_ids in zip(inputs.input_ids, generated_ids)
                     ]
 
-                    # 💡 使用裁剪后的 token 进行解码
                     output_text = processor.batch_decode(
                         generated_ids_trimmed, skip_special_tokens=True, clean_up_tokenization_spaces=False
                     )
