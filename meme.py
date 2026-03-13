@@ -19,13 +19,13 @@ KNOWLEDGE_BASE = {
     "Tuxedo Winnie the Pooh": "Shows two images of Winnie the Pooh, one normal and one wearing a fancy tuxedo. Used to contrast a basic, informal way of doing something with a highly sophisticated or pretentious way.",
     "They're the Same Picture": "Features Pam Beesly from The Office telling corporate that two pictures are the same. Used to mock two things, brands, or ideas that claim to be different but are practically identical.",
     "Boardroom Meeting Suggestion": "A comic showing a boss asking for ideas. Two employees give bad corporate ideas, while the third gives a logical one and gets thrown out the window. Mocks irrational corporate decision-making.",
-    
+
     # Brain & Intelligence
     "Expanding Brain": "A series of images showing a brain increasing in size and glowing. It is used ironically to show that a supposedly 'stupid' or 'bizarre' idea is actually the most genius, while the normal idea gets the smallest brain.",
     "Is This a Pigeon?": "Features an anime character looking at a butterfly and asking 'Is this a pigeon?'. Used to express utter confusion, deep ignorance, or a profound misunderstanding of a basic concept.",
     "Roll Safe": "Features a man pointing to his temple with a knowing smile. Used to suggest ironically 'smart' but actually terrible life hacks or flawed logic (e.g., 'You can't be broke if you never check your bank account').",
     "Math Lady / Nazaré Confusa": "Features a blonde woman looking confused with complex math equations floating around her head. Represents someone trying very hard to calculate, understand, or process confusing information.",
-    
+
     # Reactions & Emotions
     "This is Fine": "Originates from the webcomic Gunshow, featuring a dog sitting in a burning room drinking coffee. It satirizes the attitude of denying a severe crisis and pretending everything is completely okay.",
     "Surprised Pikachu": "A low-resolution image of Pikachu with its mouth open. Represents feigned or sarcastic surprise when a highly predictable, negative outcome happens after a foolish action.",
@@ -36,7 +36,7 @@ KNOWLEDGE_BASE = {
     "Confused Nick Young": "Basketball player Nick Young looking extremely confused with question marks. Used to react to absurd statements, incomprehensible situations, or stupid behavior.",
     "Monkey Puppet": "Features a monkey puppet looking awkwardly to the side and then away. Represents awkward avoidance, feigning ignorance, or silently hoping no one notices your involvement in a questionable situation.",
     "Homer Simpson Backing Into Bushes": "Shows Homer Simpson slowly disappearing backwards into a green hedge. Represents the desire to completely vanish, escape an awkward social situation, or abandon a failing argument.",
-    
+
     # Animals & Characters
     "Doge": "Features a Shiba Inu dog named Kabosu. It usually includes colorful Comic Sans text representing inner monologues with broken English syntax (e.g., 'much wow', 'very scare').",
     "Swole Doge vs. Cheems": "Contrasts a heavily muscled Doge (representing the past, strength, or superiority) with a weak, crying dog named Cheems (representing the present, weakness, or inferiority).",
@@ -46,7 +46,7 @@ KNOWLEDGE_BASE = {
     "Gigachad": "A black-and-white photo of an ultra-muscular, highly masculine man. Represents the absolute 'Alpha' opinion, often used ironically to praise someone who does something bizarre but owns it confidently.",
     "Chad vs. Virgin": "An MS Paint drawing contrasting a hunched, insecure 'Virgin' with an absurdly confident, hyper-masculine 'Chad'. Used to mock mainstream behavior while ironically glorifying weird or niche behavior.",
     "Arthur Fist": "Features the cartoon character Arthur's hand clenched tightly into a fist. Represents intense, suppressed frustration, anger, or silent rage over a relatable annoyance.",
-    
+
     # Pop Culture & Movies
     "One Does Not Simply": "Features Boromir from Lord of the Rings making a ring with his fingers. Used to emphasize that a certain task is significantly more difficult than people assume.",
     "Spider-Man Pointing at Spider-Man": "Shows two identical Spider-Men pointing at each other. Used when two very similar people, organizations, or hypocrites meet or accuse each other of the same thing.",
@@ -58,7 +58,7 @@ KNOWLEDGE_BASE = {
     "Leonardo DiCaprio Cheers": "Leonardo DiCaprio holding up a martini glass with a smug, satisfied smile from The Great Gatsby. Represents a sarcastic toast, mutual understanding, or celebrating someone's cleverness.",
     "Look at Me I'm the Captain Now": "From the movie Captain Phillips. Represents a sudden, aggressive usurpation of power or control in a relationship, group, or situation.",
     "Wolverine Crush": "Shows Wolverine from X-Men lying in bed sadly caressing a picture frame. Used to express deep nostalgia, longing, or missing something that is gone forever.",
-    
+
     # Scenarios & Dialogues
     "Trade Offer": "Features a man in a suit proposing a trade. The user gives something minor/bad, and receives something terrible/worthless in return. Satirizes unfair deals or bad game mechanics.",
     "Change My Mind": "Features Steven Crowder sitting at a table with a sign saying '[Controversial Statement], Change My Mind'. Invites debate on a completely absurd, humorous, or deeply stubborn personal opinion.",
@@ -131,6 +131,7 @@ st.set_page_config(
     layout="wide"
 )
 
+
 @st.cache_resource
 def load_model():
     model_path = "Qwen/Qwen2.5-VL-3B-Instruct"
@@ -173,6 +174,9 @@ if uploaded_file is not None:
     with col1:
         image = Image.open(uploaded_file)
         st.image(image, caption="Uploaded Image", use_container_width=True)
+        if image.mode in ("RGBA", "P"):
+            image = image.convert("RGB")
+
         temp_path = "temp_meme.jpg"
         image.save(temp_path)
 
@@ -229,6 +233,7 @@ if uploaded_file is not None:
                         **inputs, max_new_tokens=1024, do_sample=True, temperature=0.7, top_p=0.9,
                         repetition_penalty=1.1
                     )
+
 
                     generated_ids_trimmed = [
                         out_ids[len(in_ids):] for in_ids, out_ids in zip(inputs.input_ids, generated_ids)
