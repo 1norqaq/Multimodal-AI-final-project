@@ -21,6 +21,12 @@ temp_meme.*
 *.jpg
 *.jpeg
 *.webp
+evaluation/benchmark_results.json
+evaluation/dataset.json
+evaluation/qa_results.json
+evaluation/qa_run.log
+evaluation/sample_sources.json
+evaluation/tmp/
 
 # OS system files
 .DS_Store

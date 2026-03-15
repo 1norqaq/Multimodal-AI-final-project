@@ -1,0 +1,42 @@
+{
+  "samples": [
+    {
+      "id": "classic_top_bottom_001",
+      "image_path": "evaluation/samples/classic_top_bottom_001.jpg",
+      "category": "classic_top_bottom",
+      "expected_phrases": [
+        "I should study",
+        "also me: opens Netflix"
+      ],
+      "ui_noise_phrases": [
+        "like",
+        "reply",
+        "retweet"
+      ]
+    },
+    {
+      "id": "screenshot_tweet_001",
+      "image_path": "evaluation/samples/screenshot_tweet_001.jpg",
+      "category": "screenshot_social",
+      "expected_phrases": [
+        "Nobody:",
+        "Me at 3am"
+      ],
+      "ui_noise_phrases": [
+        "views",
+        "ago",
+        "follow"
+      ]
+    },
+    {
+      "id": "multi_panel_001",
+      "image_path": "evaluation/samples/multi_panel_001.jpg",
+      "category": "multi_panel",
+      "expected_phrases": [
+        "panel 1 text",
+        "panel 2 text"
+      ],
+      "ui_noise_phrases": []
+    }
+  ]
+}
